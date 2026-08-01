@@ -211,6 +211,35 @@ func TestRawBINReader_2352Mode(t *testing.T) {
 	}
 }
 
+func TestRawBINReader_2352Mode_Mode2Raw(t *testing.T) {
+	// Build a 2352-byte-sector BIN with MODE2/2352 track.
+	// Plant a sentinel in the user-data area of sector 17 (absolute).
+	// Under MODE2/2352, the user data begins at offset 24 instead of 16.
+	const sectors = 20
+	bin := make([]byte, sectors*2352)
+	want := []byte{0xbe, 0xef, 0xca, 0xfe}
+	copy(bin[17*2352+24:17*2352+24+4], want)
+
+	sheet, err := cue.ParseString(`FILE "fake.bin" BINARY
+  TRACK 01 MODE2/2352
+    INDEX 01 00:00:00
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := NewRawBINReader(bin, sheet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := make([]byte, SectorSize)
+	if err := r.ReadSector(17, out); err != nil {
+		t.Fatalf("ReadSector(17) err = %v", err)
+	}
+	if !bytes.Equal(out[:4], want) {
+		t.Errorf("user data = %x, want %x", out[:4], want)
+	}
+}
+
 func TestRawBINReader_2048Mode(t *testing.T) {
 	// A BIN whose length is a multiple of 2048 but not 2352 should be
 	// detected as already-stripped.
@@ -221,6 +250,37 @@ func TestRawBINReader_2048Mode(t *testing.T) {
 	sheet, err := cue.ParseString(`FILE "fake.bin" BINARY
   TRACK 01 MODE1/2352
     INDEX 01 00:00:00
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := NewRawBINReader(bin, sheet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.sectorSize != 2048 {
+		t.Errorf("sectorSize = %d, want 2048", r.sectorSize)
+	}
+	out := make([]byte, SectorSize)
+	if err := r.ReadSector(17, out); err != nil {
+		t.Fatalf("ReadSector(17) err = %v", err)
+	}
+	if !bytes.Equal(out[:2], want) {
+		t.Errorf("user data = %x, want %x", out[:2], want)
+	}
+}
+
+func TestRawBINReader_2048Mode_WithNonZeroDataStart(t *testing.T) {
+	// If a BIN is 2048-aligned and already-stripped, it lacks the pregap.
+	// Even if the CUE has INDEX 01 00:02:00 (offset = 150), NewRawBINReader
+	// should treat the data start as 0 and read without offset.
+	const sectors = 20
+	bin := make([]byte, sectors*2048)
+	want := []byte{0xbe, 0xef}
+	copy(bin[17*2048:17*2048+2], want)
+	sheet, err := cue.ParseString(`FILE "fake.bin" BINARY
+  TRACK 01 MODE1/2352
+    INDEX 01 00:02:00
 `)
 	if err != nil {
 		t.Fatal(err)
