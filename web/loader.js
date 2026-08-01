@@ -204,6 +204,8 @@
 
   // WebAssembly.instantiateStreaming requires the correct MIME type; some
   // local servers do not set it, so we fall back to fetch + instantiate.
+  // In non-secure environments or local WebViews (e.g., file:/// contexts on Android),
+  // fetch fails or is unsupported. We fall back to XMLHttpRequest in those cases.
   async function bootWasm() {
     setLoading(0.02, "Loading re2.wasm…");
     if (typeof Go === "undefined") {
@@ -212,10 +214,35 @@
     }
     const goInstance = new Go();
     let result;
+    let buf;
     try {
-      const resp = await fetch("re2.wasm");
-      if (!resp.ok) throw new Error("HTTP " + resp.status);
-      const buf = await resp.arrayBuffer();
+      try {
+        const resp = await fetch("re2.wasm");
+        if (!resp.ok) throw new Error("HTTP " + resp.status);
+        buf = await resp.arrayBuffer();
+      } catch (fetchErr) {
+        // Fallback to XMLHttpRequest for environments like local file:// (e.g., Android WebView)
+        // where fetch requests for local files fail or are not supported.
+        buf = await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("GET", "re2.wasm", true);
+          xhr.responseType = "arraybuffer";
+          xhr.onload = () => {
+            // Under file://, xhr.status is often 0 on success.
+            if (xhr.status === 200 || xhr.status === 0) {
+              if (xhr.response) {
+                resolve(xhr.response);
+              } else {
+                reject(new Error("XMLHttpRequest returned empty response"));
+              }
+            } else {
+              reject(new Error("HTTP " + xhr.status));
+            }
+          };
+          xhr.onerror = () => reject(new Error("XMLHttpRequest failed"));
+          xhr.send();
+        });
+      }
       result = await WebAssembly.instantiate(buf, goInstance.importObject);
     } catch (e) {
       showError("Failed to load re2.wasm: " + e.message);
