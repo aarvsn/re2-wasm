@@ -120,9 +120,14 @@ func (r *RawBINReader) ReadSector(n int64, out []byte) error {
 		copy(out, r.bin[absSector*2048:(absSector+1)*2048])
 		return nil
 	}
-	// 2352-byte raw sector layout (MODE1):
-	//   12 sync | 4 header | 2048 user data | 288 ECC/EDC
-	userStart := absSector*2352 + 16
+	// 2352-byte raw sector layout:
+	//   MODE1: 12 sync | 4 header | 2048 user data | 288 ECC/EDC  => user data starts at offset 16
+	//   MODE2: 12 sync | 4 header | 8 subheader | 2048 user data | 280 ECC/EDC => user data starts at offset 24
+	headerOffset := int64(16)
+	if r.dataTrack != nil && r.dataTrack.Mode == cue.Mode2Raw {
+		headerOffset = 24
+	}
+	userStart := absSector*2352 + headerOffset
 	if int(userStart)+SectorSize > len(r.bin) {
 		return fmt.Errorf("iso9660: BIN truncated at sector %d", absSector)
 	}

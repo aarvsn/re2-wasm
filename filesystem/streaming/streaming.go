@@ -108,6 +108,7 @@ type SectorReader struct {
 	sectorSize int64
 	dataStart  int64 // sector offset of the data track
 	total      int64 // total data sectors available
+	dataTrack  *cue.Track
 }
 
 // NewSectorReader returns a reader for the given file handle + cue sheet.
@@ -128,11 +129,20 @@ func NewSectorReader(handle *FileHandle, sheet *cue.Sheet) (*SectorReader, error
 		sectorSize = 2048
 	}
 	dataStart := dt.Indices[0].Start
+
+	actualDataStart := dataStart
+	actualTotal := size/sectorSize - dataStart
+	if sectorSize == 2048 {
+		actualDataStart = 0
+		actualTotal = size/sectorSize
+	}
+
 	return &SectorReader{
 		handle:     handle,
 		sectorSize: sectorSize,
-		dataStart:  dataStart,
-		total:      size/sectorSize - dataStart,
+		dataStart:  actualDataStart,
+		total:      actualTotal,
+		dataTrack:  dt,
 	}, nil
 }
 
@@ -149,8 +159,14 @@ func (r *SectorReader) ReadSector(n int64, out []byte) error {
 	if r.sectorSize == 2048 {
 		return r.handle.ReadAt(out[:iso9660.SectorSize], absSector*2048)
 	}
-	// Raw 2352-byte sector: skip 12-byte sync + 4-byte header.
-	return r.handle.ReadAt(out[:iso9660.SectorSize], absSector*2352+16)
+	// Raw 2352-byte sector layout:
+	//   MODE1: 12 sync | 4 header | 2048 user data | 288 ECC/EDC  => user data starts at offset 16
+	//   MODE2: 12 sync | 4 header | 8 subheader | 2048 user data | 280 ECC/EDC => user data starts at offset 24
+	headerOffset := int64(16)
+	if r.dataTrack != nil && r.dataTrack.Mode == cue.Mode2Raw {
+		headerOffset = 24
+	}
+	return r.handle.ReadAt(out[:iso9660.SectorSize], absSector*2352+headerOffset)
 }
 
 // SectorCount implements iso9660.SectorReader.
