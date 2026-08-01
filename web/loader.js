@@ -206,7 +206,7 @@
   // local servers do not set it, so we fall back to fetch + instantiate.
   async function bootWasm() {
     setLoading(0.02, "Loading re2.wasm…");
-    if (typeof go === "undefined") {
+    if (typeof Go === "undefined") {
       showError("wasm_exec.js failed to load — did `make wasm` run?");
       return;
     }
