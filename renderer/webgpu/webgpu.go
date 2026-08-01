@@ -22,12 +22,12 @@ var ErrNotImplemented = errors.New("webgpu: not implemented (Phase 6)")
 
 // Renderer is the WebGPU backend. The zero value is not usable; call New.
 type Renderer struct {
-	canvas js.Value
-	device js.Value
+	canvas  js.Value
+	device  js.Value
 	context js.Value
-	clear  [4]float32
-	ready  bool
-	stats  common.Stats
+	clear   [4]float32
+	ready   bool
+	stats   common.Stats
 }
 
 // New returns a Renderer bound to the canvas with the given DOM id. The

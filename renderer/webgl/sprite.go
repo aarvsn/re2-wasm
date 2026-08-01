@@ -16,11 +16,11 @@ import (
 // call Begin to bind the sprite shader, queue sprites via Quad, and call
 // End to flush.
 type SpriteBatch struct {
-	r       *Renderer
-	prog    *Program
-	vbo     js.Value
-	ibuf    js.Value
-	vao     js.Value
+	r    *Renderer
+	prog *Program
+	vbo  js.Value
+	ibuf js.Value
+	vao  js.Value
 
 	// CPU-side vertex buffer. 8 floats per vertex (pos.xy, uv.xy, col.rgba),
 	// 4 vertices per quad. We grow capacity lazily.
@@ -99,13 +99,13 @@ func NewSpriteBatch(r *Renderer, maxQuads int) (*SpriteBatch, error) {
 	gl.Call("bindBuffer", gl.Get("ELEMENT_ARRAY_BUFFER"), js.Null())
 
 	return &SpriteBatch{
-		r:       r,
-		prog:    prog,
-		vbo:     vbo,
-		ibuf:    ibuf,
-		vao:     vao,
+		r:        r,
+		prog:     prog,
+		vbo:      vbo,
+		ibuf:     ibuf,
+		vao:      vao,
 		maxQuads: maxQuads,
-		verts:   make([]float32, 0, maxQuads*spriteVertsPerQuad*spriteFloatsPerVertex),
+		verts:    make([]float32, 0, maxQuads*spriteVertsPerQuad*spriteFloatsPerVertex),
 	}, nil
 }
 

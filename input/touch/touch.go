@@ -17,10 +17,10 @@ import (
 
 // Button is one on-screen touch control.
 type Button struct {
-	ID       string
-	X, Y     float32 // centre, in CSS pixels
-	Radius   float32 // hit radius in CSS pixels
-	Held     bool
+	ID     string
+	X, Y   float32 // centre, in CSS pixels
+	Radius float32 // hit radius in CSS pixels
+	Held   bool
 }
 
 // Layout is the set of on-screen buttons.

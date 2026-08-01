@@ -17,9 +17,9 @@ import (
 
 // Manager wraps a browser AudioContext. It is safe for concurrent use.
 type Manager struct {
-	mu      sync.Mutex
-	ctx     js.Value
-	master  js.Value
+	mu        sync.Mutex
+	ctx       js.Value
+	master    js.Value
 	suspended bool
 }
 
