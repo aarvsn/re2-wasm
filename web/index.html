@@ -75,6 +75,24 @@
     </div>
   </div>
 
+  <!-- Polyfill for non-secure contexts (such as local HTTP testing on mobile) where Crypto API is unavailable -->
+  <script>
+    if (!globalThis.crypto || !globalThis.crypto.getRandomValues) {
+      const polyfillCrypto = {
+        getRandomValues(array) {
+          for (let i = 0; i < array.length; i++) {
+            array[i] = Math.floor(Math.random() * 256);
+          }
+          return array;
+        }
+      };
+      if (!globalThis.crypto) {
+        globalThis.crypto = polyfillCrypto;
+      } else {
+        globalThis.crypto.getRandomValues = polyfillCrypto.getRandomValues;
+      }
+    }
+  </script>
   <!-- Go's wasm_exec.js helper, copied from $(go env GOROOT)/lib/wasm/. -->
   <script src="wasm_exec.js"></script>
   <!-- Tiny glue that loads re2.wasm and wires the DOM buttons. -->
