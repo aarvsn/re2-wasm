@@ -82,15 +82,27 @@ func NewRawBINReader(bin []byte, sheet *cue.Sheet) (*RawBINReader, error) {
 	}
 	dataStart := dt.Indices[0].Start
 	total := int64(len(bin)) / sectorSize
-	if dataStart >= total {
-		return nil, fmt.Errorf("iso9660: data track starts at sector %d but BIN has only %d sectors", dataStart, total)
+
+	// A 2048-byte sector-aligned BIN/ISO contains only the data track itself,
+	// meaning it has already been stripped of CD-ROM sectors and pregap.
+	// Therefore, it starts directly at sector 0 and contains all available sectors.
+	actualDataStart := dataStart
+	actualTotalSectors := total - dataStart
+	if sectorSize == 2048 {
+		actualDataStart = 0
+		actualTotalSectors = total
+	} else {
+		if dataStart >= total {
+			return nil, fmt.Errorf("iso9660: data track starts at sector %d but BIN has only %d sectors", dataStart, total)
+		}
 	}
+
 	return &RawBINReader{
 		bin:          bin,
 		sectorSize:   sectorSize,
 		dataTrack:    dt,
-		dataStart:    dataStart,
-		totalSectors: total - dataStart,
+		dataStart:    actualDataStart,
+		totalSectors: actualTotalSectors,
 	}, nil
 }
 

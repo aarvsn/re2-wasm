@@ -241,6 +241,37 @@ func TestRawBINReader_2048Mode(t *testing.T) {
 	}
 }
 
+func TestRawBINReader_2048Mode_WithNonZeroDataStart(t *testing.T) {
+	// If a BIN is 2048-aligned and already-stripped, it lacks the pregap.
+	// Even if the CUE has INDEX 01 00:02:00 (offset = 150), NewRawBINReader
+	// should treat the data start as 0 and read without offset.
+	const sectors = 20
+	bin := make([]byte, sectors*2048)
+	want := []byte{0xbe, 0xef}
+	copy(bin[17*2048:17*2048+2], want)
+	sheet, err := cue.ParseString(`FILE "fake.bin" BINARY
+  TRACK 01 MODE1/2352
+    INDEX 01 00:02:00
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := NewRawBINReader(bin, sheet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.sectorSize != 2048 {
+		t.Errorf("sectorSize = %d, want 2048", r.sectorSize)
+	}
+	out := make([]byte, SectorSize)
+	if err := r.ReadSector(17, out); err != nil {
+		t.Fatalf("ReadSector(17) err = %v", err)
+	}
+	if !bytes.Equal(out[:2], want) {
+		t.Errorf("user data = %x, want %x", out[:2], want)
+	}
+}
+
 func TestRawBINReader_NoDataTrack(t *testing.T) {
 	sheet, _ := cue.ParseString(`FILE "fake.bin" BINARY
   TRACK 01 AUDIO
