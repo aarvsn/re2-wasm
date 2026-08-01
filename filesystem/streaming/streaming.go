@@ -134,7 +134,7 @@ func NewSectorReader(handle *FileHandle, sheet *cue.Sheet) (*SectorReader, error
 	actualTotal := size/sectorSize - dataStart
 	if sectorSize == 2048 {
 		actualDataStart = 0
-		actualTotal = size/sectorSize
+		actualTotal = size / sectorSize
 	}
 
 	return &SectorReader{
