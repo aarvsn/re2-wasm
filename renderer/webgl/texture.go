@@ -13,11 +13,11 @@ import (
 
 // Texture is a GPU-side texture handle.
 type Texture struct {
-	id      common.TextureID
-	glObj   js.Value
-	width   int
-	height  int
-	format  common.PixelFormat
+	id     common.TextureID
+	glObj  js.Value
+	width  int
+	height int
+	format common.PixelFormat
 }
 
 // UploadTexture uploads RGBA8 pixel data to a fresh GPU texture. The data

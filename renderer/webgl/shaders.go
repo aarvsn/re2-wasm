@@ -17,10 +17,10 @@ type ShaderID int
 
 // Catalogue of known shaders.
 const (
-	ShaderNone ShaderID = iota
-	ShaderUnlitFlat   // flat-colour triangle, no lighting
-	ShaderUnlitTextured // textured, no lighting
-	ShaderSprite       // 2D sprite batcher
+	ShaderNone          ShaderID = iota
+	ShaderUnlitFlat              // flat-colour triangle, no lighting
+	ShaderUnlitTextured          // textured, no lighting
+	ShaderSprite                 // 2D sprite batcher
 )
 
 // vertexSource returns the GLSL ES 3.00 vertex shader for the given program.

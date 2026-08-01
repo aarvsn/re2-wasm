@@ -10,16 +10,16 @@ import "syscall/js"
 
 // Report is the set of feature flags the engine cares about.
 type Report struct {
-	WebGL2          bool
-	WebGPU          bool
-	WebAudio        bool
-	Gamepad         bool
-	IndexedDB       bool
-	PointerLock     bool
-	Fullscreen      bool
+	WebGL2           bool
+	WebGPU           bool
+	WebAudio         bool
+	Gamepad          bool
+	IndexedDB        bool
+	PointerLock      bool
+	Fullscreen       bool
 	FileSystemAccess bool
-	Vibration       bool
-	WASMStreaming   bool
+	Vibration        bool
+	WASMStreaming    bool
 }
 
 // Detect probes the browser and returns a Report. Safe to call at any
