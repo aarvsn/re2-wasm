@@ -116,6 +116,31 @@
   function handleFiles(fileList) {
     const files = Array.from(fileList || []);
     if (files.length === 0) return;
+
+    // Check if re2.wasm is in the selected files list and WASM isn't loaded yet
+    const wasmFile = files.find(f => f.name.toLowerCase() === "re2.wasm");
+    if (wasmFile && !window.re2wasm) {
+      setLoading(0.05, "Reading re2.wasm…");
+      const rdr = new FileReader();
+      rdr.onload = () => {
+        const bytes = new Uint8Array(rdr.result);
+        bootWasm(bytes).then(() => {
+          // Once booted, mount the rest of the files
+          const otherFiles = files.filter(f => f.name.toLowerCase() !== "re2.wasm");
+          if (otherFiles.length > 0) {
+            mountGameFiles(otherFiles);
+          }
+        });
+      };
+      rdr.onerror = () => showError("Could not read re2.wasm");
+      rdr.readAsArrayBuffer(wasmFile);
+      return;
+    }
+
+    mountGameFiles(files);
+  }
+
+  function mountGameFiles(files) {
     setLoading(0.05, "Reading " + files.length + " file(s)…");
     let done = 0;
     files.forEach((f) => {
@@ -127,6 +152,8 @@
           if (!r || !r.ok) {
             showError("mountFile failed for " + f.name + ": " + (r && r.error));
           }
+        } else {
+          showError("WASM engine is not loaded. Please select 're2.wasm' along with your game files.");
         }
         done++;
         setLoading(0.05 + 0.9 * (done / files.length), "Mounted " + f.name);
@@ -206,7 +233,10 @@
   // local servers do not set it, so we fall back to fetch + instantiate.
   // In non-secure environments or local WebViews (e.g., file:/// contexts on Android),
   // fetch fails or is unsupported. We fall back to XMLHttpRequest in those cases.
-  async function bootWasm() {
+  async function bootWasm(customBuf) {
+    if (window.re2wasm) {
+      return;
+    }
     setLoading(0.02, "Loading re2.wasm…");
     if (typeof Go === "undefined") {
       showError("wasm_exec.js failed to load — did `make wasm` run?");
@@ -214,41 +244,48 @@
     }
     const goInstance = new Go();
     let result;
-    let buf;
-    try {
+    let buf = customBuf;
+    if (!buf) {
       try {
-        const resp = await fetch("re2.wasm");
-        if (!resp.ok) throw new Error("HTTP " + resp.status);
-        buf = await resp.arrayBuffer();
-      } catch (fetchErr) {
-        // Fallback to XMLHttpRequest for environments like local file:// (e.g., Android WebView)
-        // where fetch requests for local files fail or are not supported.
-        buf = await new Promise((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.open("GET", "re2.wasm", true);
-          xhr.responseType = "arraybuffer";
-          xhr.onload = () => {
-            // Under file://, xhr.status is often 0 on success.
-            if (xhr.status === 200 || xhr.status === 0) {
-              if (xhr.response) {
-                resolve(xhr.response);
+        try {
+          const resp = await fetch("re2.wasm");
+          if (!resp.ok) throw new Error("HTTP " + resp.status);
+          buf = await resp.arrayBuffer();
+        } catch (fetchErr) {
+          // Fallback to XMLHttpRequest for environments like local file:// (e.g., Android WebView)
+          // where fetch requests for local files fail or are not supported.
+          buf = await new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open("GET", "re2.wasm", true);
+            xhr.responseType = "arraybuffer";
+            xhr.onload = () => {
+              // Under file://, xhr.status is often 0 on success.
+              if (xhr.status === 200 || xhr.status === 0) {
+                if (xhr.response) {
+                  resolve(xhr.response);
+                } else {
+                  reject(new Error("XMLHttpRequest returned empty response"));
+                }
               } else {
-                reject(new Error("XMLHttpRequest returned empty response"));
+                reject(new Error("HTTP " + xhr.status));
               }
-            } else {
-              reject(new Error("HTTP " + xhr.status));
-            }
-          };
-          xhr.onerror = () => reject(new Error("XMLHttpRequest failed"));
-          xhr.send();
-        });
+            };
+            xhr.onerror = () => reject(new Error("XMLHttpRequest failed"));
+            xhr.send();
+          });
+        }
+      } catch (e) {
+        showError("Failed to load re2.wasm: " + e.message + ". If running locally, you can select 're2.wasm' using the Browse button.");
+        return;
       }
-      result = await WebAssembly.instantiate(buf, goInstance.importObject);
-    } catch (e) {
-      showError("Failed to load re2.wasm: " + e.message);
-      return;
     }
     setLoading(0.4, "Instantiating…");
+    try {
+      result = await WebAssembly.instantiate(buf, goInstance.importObject);
+    } catch (e) {
+      showError("Failed to instantiate WebAssembly: " + e.message);
+      return;
+    }
     // goInstance.run returns a promise that resolves when main() returns.
     // Our main() blocks forever, so this promise stays pending.
     goInstance.run(result.instance).catch((e) => {
