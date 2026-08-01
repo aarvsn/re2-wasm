@@ -1,0 +1,8 @@
+>> serving /app/web on http://localhost:8080
+127.0.0.1 - - [01/Aug/2026 14:42:47] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [01/Aug/2026 14:42:47] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [01/Aug/2026 14:42:47] "GET /wasm_exec.js HTTP/1.1" 200 -
+127.0.0.1 - - [01/Aug/2026 14:42:47] "GET /loader.js HTTP/1.1" 200 -
+127.0.0.1 - - [01/Aug/2026 14:42:47] "GET /re2.wasm HTTP/1.1" 200 -
+Terminated
+make: *** [Makefile:96: serve] Error 143
