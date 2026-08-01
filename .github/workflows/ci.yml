@@ -1,0 +1,141 @@
+# re2-wasm continuous integration
+#
+# Goals (mirrors the project README):
+#   * Build on Linux, Windows, and macOS
+#   * Build the WASM target (Linux runner; output is portable)
+#   * Run the host unit tests on every OS
+#   * Cache Go modules + the Go toolchain
+#   * Upload the web/ bundle as an artifact
+#   * Fail on any warning or error
+#
+# The workflow deliberately does NOT pin a single Go version in CI: it uses
+# the latest stable Go (>= 1.25 as required by go.mod) so we catch regressions
+# in new releases early.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Cancel superseded runs on the same PR; saves runner minutes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # -----------------------------------------------------------------------
+  # Host tests + vet: runs on all three OSes so we catch platform-specific
+  # path bugs in the filesystem / saves packages.
+  # -----------------------------------------------------------------------
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "^1.25"
+          cache: true
+          check-latest: true
+
+      - name: Format check
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          go fmt ./...
+          diff="$(gofmt -s -l .)"
+          if [ -n "$diff" ]; then
+            echo "::error::gofmt found unformatted files:"
+            echo "$diff"
+            exit 1
+          fi
+
+      - name: Vet (host)
+        run: go vet ./...
+
+      - name: Test (host)
+        run: go test -count=1 -race ./...
+
+  # -----------------------------------------------------------------------
+  # WASM build: only on Linux because the output is portable and we want
+  # artifacts from one stable environment.
+  # -----------------------------------------------------------------------
+  wasm:
+    name: Build WASM
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "^1.25"
+          cache: true
+          check-latest: true
+
+      - name: Vet (js/wasm)
+        env:
+          GOOS: js
+          GOARCH: wasm
+        run: go vet ./...
+
+      - name: Build WASM
+        run: make wasm
+
+      - name: Verify wasm_exec.js was copied
+        run: |
+          test -f web/re2.wasm
+          test -f web/wasm_exec.js
+          test -f web/index.html
+          test -f web/styles.css
+          test -f web/loader.js
+
+      - name: Upload web bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: re2-wasm-web
+          path: web/
+          if-no-files-found: error
+          retention-days: 30
+
+  # -----------------------------------------------------------------------
+  # Smoke-serve: spin up the dev server and curl the index to make sure
+  # `make serve` works out of the box. Linux only.
+  # -----------------------------------------------------------------------
+  smoke:
+    name: Smoke serve
+    runs-on: ubuntu-latest
+    needs: wasm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "^1.25"
+          cache: true
+          check-latest: true
+
+      - name: Build WASM
+        run: make wasm
+
+      - name: Serve and probe
+        run: |
+          (cd web && python3 -m http.server 8080 &) 
+          sleep 1
+          curl -sSf http://localhost:8080/index.html        > /dev/null
+          curl -sSf http://localhost:8080/styles.css        > /dev/null
+          curl -sSf http://localhost:8080/loader.js         > /dev/null
+          curl -sSf http://localhost:8080/wasm_exec.js      > /dev/null
+          curl -sSf http://localhost:8080/re2.wasm          > /dev/null
+          echo "smoke: all assets reachable"

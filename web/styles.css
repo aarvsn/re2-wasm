@@ -1,0 +1,253 @@
+/* re2-wasm frontend styles.
+ *
+ * Design goals:
+ *  - Match the moody, low-key look of RE2's menus: dark background, single
+ *    accent colour, restrained typography.
+ *  - Stay responsive from small phones up to 4K displays.
+ *  - Never use external fonts: the page must work fully offline because the
+ *    WASM module does (it never calls out to the network).
+ */
+
+:root {
+  --bg:        #0a0a0c;
+  --bg-elev:   #141418;
+  --fg:        #e8e8ea;
+  --fg-dim:    #9a9aa0;
+  --accent:    #c43c2a;  /* RE2 red, used sparingly */
+  --accent-2:  #6a8cff;
+  --border:    #2a2a30;
+  --ok:        #4caf50;
+  --warn:      #ffb300;
+  --err:       #ff5252;
+  --shadow:    0 8px 24px rgba(0,0,0,.4);
+  --radius:    8px;
+  --font:      "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue",
+               Arial, "Noto Sans", "Liberation Sans", sans-serif;
+  --mono:      "JetBrains Mono", "Fira Code", "SFMono-Regular", Consolas,
+               "Liberation Mono", Menlo, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#app {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  display: grid;
+  place-items: center;
+}
+
+canvas#re2-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* ---------- Loading overlay ---------- */
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 30%,
+              rgba(196,60,42,.08), rgba(0,0,0,.9) 70%);
+  z-index: 30;
+}
+.overlay.visible { display: flex; }
+
+.loading-card {
+  width: min(640px, 92vw);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 28px 32px 32px;
+}
+
+.title {
+  margin: 0 0 4px;
+  font-size: 28px;
+  letter-spacing: 2px;
+  text-transform: lowercase;
+  color: var(--fg);
+}
+.title::before {
+  content: "> ";
+  color: var(--accent);
+}
+
+.subtitle {
+  margin: 0 0 20px;
+  color: var(--fg-dim);
+  font-size: 13px;
+}
+
+.loading-bar-track {
+  height: 8px;
+  background: #000;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.loading-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent), #e25a44);
+  transition: width 120ms linear;
+}
+
+.loading-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--fg-dim);
+}
+
+.boot-hint {
+  margin: 16px 0;
+  font-size: 12px;
+  color: var(--fg-dim);
+}
+.boot-hint summary { cursor: pointer; color: var(--accent-2); }
+.boot-hint a { color: var(--accent-2); }
+
+.dropzone {
+  margin-top: 12px;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 24px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 150ms, background 150ms;
+  outline: none;
+}
+.dropzone:hover, .dropzone:focus, .dropzone.drag {
+  border-color: var(--accent);
+  background: rgba(196,60,42,.06);
+}
+.dropzone .or { color: var(--fg-dim); margin: 6px 0; font-size: 11px; }
+.dropzone button {
+  font: inherit;
+  padding: 6px 16px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.dropzone button:hover { background: #d04634; }
+
+.boot-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 16px;
+}
+.badge {
+  text-align: center;
+  font-size: 11px;
+  font-family: var(--mono);
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #000;
+  color: var(--fg-dim);
+}
+.badge.ok    { color: var(--ok);   border-color: var(--ok);   }
+.badge.warn  { color: var(--warn); border-color: var(--warn); }
+.badge.err   { color: var(--err);  border-color: var(--err);  }
+
+/* ---------- Error toast ---------- */
+.toast {
+  position: absolute;
+  left: 50%;
+  bottom: 64px;
+  transform: translateX(-50%) translateY(20px);
+  background: #2a0f0f;
+  color: #ffd7d2;
+  border: 1px solid var(--err);
+  padding: 12px 18px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms, transform 180ms;
+  max-width: min(640px, 90vw);
+  z-index: 50;
+}
+.toast.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ---------- Debug HUD ---------- */
+.hud {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  background: rgba(0,0,0,.55);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  color: var(--fg);
+  display: none;
+  z-index: 40;
+}
+.hud.visible { display: block; }
+.hud > div {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  min-width: 90px;
+}
+.hud span:first-child { color: var(--fg-dim); }
+
+/* ---------- Toolbar ---------- */
+#toolbar {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  display: flex;
+  gap: 6px;
+  z-index: 40;
+}
+#toolbar button {
+  font: inherit;
+  font-size: 12px;
+  padding: 6px 12px;
+  background: rgba(0,0,0,.55);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+}
+#toolbar button:hover { border-color: var(--accent); color: #fff; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 600px) {
+  .loading-card { padding: 18px 18px 22px; }
+  .title { font-size: 22px; }
+  .boot-grid { grid-template-columns: repeat(2, 1fr); }
+  #toolbar { flex-wrap: wrap; justify-content: flex-end; }
+}

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="dark" />
+  <title>re2-wasm &mdash; Resident Evil 2 browser port</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!--
+    re2-wasm: an open-source browser port of Resident Evil 2 (1998).
+
+    This page requires the user to provide their OWN original RE2 game files.
+    No copyrighted assets are bundled or streamed. See README.md for details.
+  -->
+  <div id="app">
+    <canvas id="re2-canvas" width="1280" height="720" tabindex="0"
+            aria-label="RE2 game canvas"></canvas>
+
+    <!-- Loading overlay. The wasm module toggles its visibility. -->
+    <div id="loading-screen" class="overlay visible">
+      <div class="loading-card">
+        <h1 class="title">re2-wasm</h1>
+        <p class="subtitle">Browser port of Resident Evil 2 (1998)</p>
+        <div class="loading-bar-track">
+          <div id="loading-bar" class="loading-bar-fill" style="width:0%"></div>
+        </div>
+        <div class="loading-row">
+          <span id="loading-label">Initialising…</span>
+          <span id="loading-percent">0%</span>
+        </div>
+        <details class="boot-hint">
+          <summary>Bring your own game files</summary>
+          <p>
+            re2-wasm does not include any Resident Evil 2 assets. Drop your
+            original BIN/CUE or extracted game data onto this window, or click
+            <em>Browse</em> to pick files from disk. See
+            <a href="../docs/README.md">README</a> for the supported layout.
+          </p>
+        </details>
+        <div class="dropzone" id="dropzone" tabindex="0" role="button"
+             aria-label="Drop game files here or click to browse">
+          <p>Drop game files here</p>
+          <p class="or">&mdash; or &mdash;</p>
+          <button id="browse-btn" type="button">Browse</button>
+          <input id="file-input" type="file" multiple hidden
+                 accept=".bin,.cue,.tim,.tmd,.adt,.img,.iso,.dat" />
+        </div>
+        <div class="boot-grid">
+          <span class="badge" id="badge-webgl">WebGL2: ?</span>
+          <span class="badge" id="badge-audio">Audio: ?</span>
+          <span class="badge" id="badge-gamepad">Gamepad: ?</span>
+          <span class="badge" id="badge-wasm">WASM: ?</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Error toast. The wasm module writes messages into #error-toast. -->
+    <div id="error-toast" class="toast" role="alert" aria-live="assertive"></div>
+
+    <!-- Debug HUD (toggle with backtick). -->
+    <div id="hud" class="hud">
+      <div><span>FPS</span><span id="hud-fps">0</span></div>
+      <div><span>Frame</span><span id="hud-frame">0</span></div>
+      <div><span>Build</span><span id="hud-build">unknown</span></div>
+    </div>
+
+    <!-- Toolbar. -->
+    <div id="toolbar">
+      <button id="btn-fullscreen" type="button" title="Fullscreen (F11)">Fullscreen</button>
+      <button id="btn-pointerlock" type="button" title="Pointer lock">Capture mouse</button>
+      <button id="btn-mute" type="button" title="Mute / unmute">Mute</button>
+      <button id="btn-stop" type="button" title="Stop the engine">Stop</button>
+    </div>
+  </div>
+
+  <!-- Go's wasm_exec.js helper, copied from $(go env GOROOT)/lib/wasm/. -->
+  <script src="wasm_exec.js"></script>
+  <!-- Tiny glue that loads re2.wasm and wires the DOM buttons. -->
+  <script src="loader.js" defer></script>
+</body>
+</html>
