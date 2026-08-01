@@ -23,11 +23,11 @@ func TestTracker_AverageIsExponentialMoving(t *testing.T) {
 	tr := New()
 	// Three measurements: 1ms, 2ms, 3ms (simulated via direct calls).
 	// The EMA with α=0.1 should be: 1, 1*0.9+2*0.1=1.1, 1.1*0.9+3*0.1=1.29
-	// We can't precisely sleep for 1ms reliably, so we test the formula
-	// via the internal mechanism: just call Begin/End with no sleep —
-	// the values will be tiny but the EMA math is what we care about.
+	// We can't precisely sleep for 1ms reliably, so we sleep for 2ms
+	// to ensure a non-zero duration on all operating systems (e.g., Windows).
 	for i := 0; i < 5; i++ {
 		tr.Begin(SectionSim)
+		time.Sleep(2 * time.Millisecond)
 		tr.End(SectionSim)
 	}
 	c := tr.Counter(SectionSim)
